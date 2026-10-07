@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Live 4-Laptop Fleet</title>
+<style>
+body{margin:0;background:#08111f;color:#eaf2ff;font:14px Arial,sans-serif}
+.wrap{max-width:1200px;margin:auto;padding:28px}
+h1{margin:0 0 6px;font-size:28px}.sub{color:#91a4bd;margin-bottom:24px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.card{background:#101c2d;border:1px solid #263750;border-radius:14px;padding:18px;min-height:210px}
+.head{display:flex;justify-content:space-between;align-items:center}.id{font-size:18px;font-weight:bold}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:7px;background:#64748b}
+.dot.on{background:#31d17c}.dot.warn{background:#f5b942}.dot.bad{background:#ef5b5b}
+.status{margin:16px 0;font-size:13px;text-transform:uppercase;letter-spacing:.08em}
+.row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1e2c41}
+.k{color:#8da0b9}.v{font-weight:600;text-align:right;max-width:62%;overflow:hidden;text-overflow:ellipsis}
+.footer{margin-top:22px;padding:14px;border:1px solid #263750;border-radius:12px;color:#9db0c9}
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:560px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Live 4-Laptop Fleet</h1>
+<div class="sub">Real-time laptop connectivity via Server-Sent Events</div>
+<div id="grid" class="grid"></div>
+<div id="conn" class="footer">Connecting to fleet server...</div>
+</div>
+<script>
+const grid=document.getElementById("grid"), conn=document.getElementById("conn");
+function esc(x){return String(x??"—").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function render(state){
+ grid.innerHTML=state.laptops.map(x=>{
+   const cls=x.online?(x.risk>=60?"bad":x.risk>0?"warn":"on"):"";
+   return `<div class="card">
+    <div class="head"><div class="id">${esc(x.id)}</div><div><span class="dot ${cls}"></span>${x.online?"ONLINE":"OFFLINE"}</div></div>
+    <div class="status">${esc(x.status)}</div>
+    <div class="row"><span class="k">User</span><span class="v">${esc(x.user)}</span></div>
+    <div class="row"><span class="k">OS</span><span class="v">${esc(x.os)}</span></div>
+    <div class="row"><span class="k">IP</span><span class="v">${esc(x.ip)}</span></div>
+    <div class="row"><span class="k">Events</span><span class="v">${esc(x.events)}</span></div>
+    <div class="row"><span class="k">Signals</span><span class="v">${esc(x.signals)}</span></div>
+    <div class="row"><span class="k">Risk</span><span class="v">${esc(x.risk)}</span></div>
+   </div>`
+ }).join("");
+ conn.textContent="Live connection • Last update: "+new Date(state.timestamp*1000).toLocaleTimeString();
+}
+function connect(){
+ const es=new EventSource("/api/stream");
+ es.onopen=()=>conn.textContent="Connected • waiting for live laptop telemetry";
+ es.onmessage=e=>render(JSON.parse(e.data));
+ es.onerror=()=>conn.textContent="Connection interrupted • retrying...";
+}
+fetch("/api/fleet").then(r=>r.json()).then(render).catch(()=>{});
+connect();
+</script>
+</body>
+</html>
